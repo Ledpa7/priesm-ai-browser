@@ -1,6 +1,7 @@
 import * as http from 'http';
 import { extractWithCrawl4AI } from '../electron/runtime/crawl4aiAdapter';
 import { createCitationBundle, SharedContextBundle } from '../electron/runtime/citationBundle';
+import { handleMCPRequest, PRIESM_MCP_TOOLS } from '../mcp/server';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 37100;
 const bundleStore = new Map<string, SharedContextBundle>();
@@ -34,6 +35,36 @@ export function createServer() {
 
     const host = req.headers.host || `localhost:${PORT}`;
     const urlObj = new URL(req.url || '/', `http://${host}`);
+
+    // GET /v1/mcp or POST /v1/mcp (Model Context Protocol Endpoint)
+    if (urlObj.pathname === '/v1/mcp' || urlObj.pathname === '/mcp') {
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            status: 'ok',
+            protocol: 'MCP (Model Context Protocol)',
+            version: '2024-11-05',
+            tools: PRIESM_MCP_TOOLS,
+          })
+        );
+        return;
+      }
+
+      if (req.method === 'POST') {
+        try {
+          const mcpReq = await parseRequestBody(req);
+          const mcpRes = await handleMCPRequest(mcpReq);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(mcpRes));
+        } catch (err: any) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' } }));
+        }
+        return;
+      }
+    }
+
 
     // GET /health
     if (req.method === 'GET' && (urlObj.pathname === '/' || urlObj.pathname === '/health' || urlObj.pathname === '/v1/health')) {
