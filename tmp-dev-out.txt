@@ -1,0 +1,24 @@
+
+> priesm-ai-browser@0.1.0 predev
+> node scripts/free-port.cjs 5174
+
+[free-port] :5174 already free
+
+> priesm-ai-browser@0.1.0 dev
+> npm run build:electron && concurrently -k "vite" "wait-on tcp:5174 && node scripts/launch-electron.cjs --dev"
+
+
+> priesm-ai-browser@0.1.0 build:electron
+> tsc -p tsconfig.electron.json
+
+[0m[0][0m 
+[0m[0][0m   [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m687[22m[2m[0m ms[22m
+[0m[0][0m 
+[0m[0][0m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[0m[0][0m [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[0m[1][0m 
+[0m[1][0m [Priesm Agent API] http://127.0.0.1:8787  token=ee5aaa3f840a87247d2d560a53fb3504
+[0m[1][0m [36896:0720/053718.971:ERROR:gpu_channel_manager.cc(959)] Failed to create GLES3 context, fallback to GLES2.
+[0m[1][0m [36896:0720/053718.971:ERROR:gpu_channel_manager.cc(970)] ContextResult::kFatalFailure: Failed to create shared context for virtualization.
+[0m[1][0m [36896:0720/053718.971:ERROR:gpu_channel_manager.cc(959)] Failed to create GLES3 context, fallback to GLES2.
+[0m[1][0m [36896:0720/053718.971:ERROR:gpu_channel_manager.cc(970)] ContextResult::kFatalFailure: Failed to create shared context for virtualization.

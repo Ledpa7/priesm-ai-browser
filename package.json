@@ -1,0 +1,33 @@
+{
+  "name": "priesm-ai-browser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Priesm AI Browser — multi-model workspace optimized for Priesm",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "predev": "node scripts/free-port.cjs 5174",
+    "dev": "npm run build:electron && concurrently -k \"vite\" \"wait-on tcp:5174 && node scripts/launch-electron.cjs --dev\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:electron && tsc -p tsconfig.json --noEmit && vite build",
+    "start": "node scripts/launch-electron.cjs",
+    "start:server": "npm run build:electron && node dist-electron/server/index.js",
+    "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "free:5174": "node scripts/free-port.cjs 5174"
+  },
+
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^34.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.1.0",
+    "wait-on": "^8.0.2"
+  }
+}
