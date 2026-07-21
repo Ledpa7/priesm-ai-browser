@@ -1,28 +1,30 @@
-const { getLLMSTxt, getOpenAPISpec, getWellKnownMCP, getRobotsTxt } = require('../dist-electron/server/discovery.js');
+const { handleMCPRequest } = require('../dist-electron/mcp/server.js');
 
-async function testDiscovery() {
+async function testFactVerificationSeal() {
   try {
-    console.log('--- Testing Autonomous AI Discovery Specs ---');
+    console.log('--- Testing Fact Verification Seal System ---');
     
-    // 1. llms.txt
-    const llms = getLLMSTxt('https://api.priesm.ledpa7.com');
-    console.log('[1. llms.txt Generated OK]:', llms.includes('Priesm AI Browser'));
+    const mcpRes = await handleMCPRequest({
+      id: 20,
+      method: 'tools/call',
+      params: {
+        name: 'priesm_extract_web_context',
+        arguments: {
+          url: 'https://example.com',
+          mode: 'full'
+        }
+      }
+    });
 
-    // 2. openapi.json
-    const openapi = getOpenAPISpec('https://api.priesm.ledpa7.com');
-    console.log('[2. openapi.json Generated OK]:', openapi.info.title === 'Priesm AI Browser API');
-
-    // 3. .well-known/mcp.json
-    const mcp = getWellKnownMCP('https://api.priesm.ledpa7.com');
-    console.log('[3. well-known mcp.json Generated OK]:', mcp.name === 'priesm-ai-browser-mcp');
-
-    // 4. robots.txt
-    const robots = getRobotsTxt('https://api.priesm.ledpa7.com');
-    console.log('[4. robots.txt Generated OK]:', robots.includes('User-agent: GPTBot'));
-
+    const text = mcpRes.result?.content[0]?.text || '';
+    console.log('[Fact Verification Seal Output Test]:', {
+      hasMasterSeal: text.includes('Verification Seal: Priesm-Verified-'),
+      hasParagraphSeal: text.includes('[Priesm-Seal: #'),
+      textPreview: text.slice(0, 300)
+    });
   } catch (e) {
-    console.error('[Discovery Test Failed]:', e);
+    console.error('[Fact Seal Test Failed]:', e);
   }
 }
 
-testDiscovery();
+testFactVerificationSeal();

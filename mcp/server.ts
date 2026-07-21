@@ -133,6 +133,7 @@ export async function handleMCPRequest(request: any): Promise<any> {
 
         const responseText = [
           `# Super Bundle (${crawlRes.sourcesCount || urls.length} sources): ${bundle.title}`,
+          `Verification Seal: ${bundle.verificationSeal} (${bundle.integrityRating})`,
           `URLs: ${bundle.url}`,
           `Bundle ID: ${bundle.bundleId}`,
           `Stats: ${bundle.tokensEst} tokens (~${bundle.savedRatioPercentage}% saved vs raw HTML)`,
@@ -140,6 +141,7 @@ export async function handleMCPRequest(request: any): Promise<any> {
           `---`,
           bundle.extractedMarkdown,
         ].join('\n\n');
+
 
         return {
           jsonrpc: '2.0',
@@ -217,6 +219,7 @@ export async function handleMCPRequest(request: any): Promise<any> {
 
         const responseText = [
           `# Evidence Bundle: ${bundle.title}`,
+          `Verification Seal: ${bundle.verificationSeal} (${bundle.integrityRating})`,
           `URL: ${bundle.url}`,
           `Bundle ID: ${bundle.bundleId}`,
           `Stats: ${bundle.tokensEst} tokens (~${bundle.savedRatioPercentage}% saved vs raw HTML)`,
@@ -224,6 +227,7 @@ export async function handleMCPRequest(request: any): Promise<any> {
           `---`,
           bundle.extractedMarkdown,
         ].join('\n\n');
+
 
         return {
           jsonrpc: '2.0',

@@ -155,6 +155,9 @@ export function createServer() {
             bundleId: bundle.bundleId,
             url: bundle.url,
             title: bundle.title,
+            verificationSeal: bundle.verificationSeal,
+            verifiedParagraphsCount: bundle.verifiedParagraphsCount,
+            integrityRating: bundle.integrityRating,
             extractedMarkdown: bundle.extractedMarkdown,
             rawHtmlLength: bundle.rawHtmlLength,
             extractedLength: bundle.extractedLength,
@@ -168,6 +171,7 @@ export function createServer() {
           })
         );
       } catch (err: any) {
+
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err?.message || 'Extraction failed' }));
       }
