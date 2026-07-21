@@ -2,6 +2,7 @@ import * as http from 'http';
 import { extractWithCrawl4AI, extractMultipleWithCrawl4AI } from '../electron/runtime/crawl4aiAdapter';
 import { createCitationBundle, SharedContextBundle } from '../electron/runtime/citationBundle';
 import { handleMCPRequest, PRIESM_MCP_TOOLS } from '../mcp/server';
+import { getLLMSTxt, getOpenAPISpec, getWellKnownMCP, getRobotsTxt } from './discovery';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 37100;
 const bundleStore = new Map<string, SharedContextBundle>();
@@ -34,7 +35,37 @@ export function createServer() {
     }
 
     const host = req.headers.host || `localhost:${PORT}`;
-    const urlObj = new URL(req.url || '/', `http://${host}`);
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const baseUrl = `${protocol}://${host}`;
+    const urlObj = new URL(req.url || '/', baseUrl);
+
+    // AI Discovery Endpoints
+    if (req.method === 'GET') {
+      if (urlObj.pathname === '/llms.txt' || urlObj.pathname === '/llms-full.txt') {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(getLLMSTxt(baseUrl));
+        return;
+      }
+
+      if (urlObj.pathname === '/robots.txt') {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(getRobotsTxt(baseUrl));
+        return;
+      }
+
+      if (urlObj.pathname === '/openapi.json' || urlObj.pathname === '/v1/openapi.json') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(getOpenAPISpec(baseUrl), null, 2));
+        return;
+      }
+
+      if (urlObj.pathname === '/.well-known/mcp.json') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(getWellKnownMCP(baseUrl), null, 2));
+        return;
+      }
+    }
+
 
     // GET /v1/mcp or POST /v1/mcp (Model Context Protocol Endpoint)
     if (urlObj.pathname === '/v1/mcp' || urlObj.pathname === '/mcp') {
