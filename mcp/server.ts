@@ -1,4 +1,4 @@
-import { extractWithCrawl4AI, ExtractOptions } from '../electron/runtime/crawl4aiAdapter';
+import { extractWithCrawl4AI, extractMultipleWithCrawl4AI, ExtractOptions } from '../electron/runtime/crawl4aiAdapter';
 import { createCitationBundle } from '../electron/runtime/citationBundle';
 
 export interface MCPToolDefinition {
@@ -12,6 +12,30 @@ export interface MCPToolDefinition {
 }
 
 export const PRIESM_MCP_TOOLS: MCPToolDefinition[] = [
+  {
+    name: 'priesm_smart_digest',
+    description:
+      'Agent-Centric Multi-URL digest tool. Fetches multiple web URLs in parallel, deduplicates overlapping paragraphs, and extracts relevant text using task query RAG.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        urls: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of target web URLs to fetch and digest concurrently (e.g. ["https://siteA.com", "https://siteB.com"])',
+        },
+        agentTaskQuery: {
+          type: 'string',
+          description: 'Specific topic/task query to pinpoint and filter relevant paragraphs (e.g. "Next.js 15 migration")',
+        },
+        maxTokensBudget: {
+          type: 'number',
+          description: 'Optional total token budget limit for the combined digest bundle',
+        },
+      },
+      required: ['urls'],
+    },
+  },
   {
     name: 'priesm_extract_web_context',
     description:
@@ -50,6 +74,7 @@ export const PRIESM_MCP_TOOLS: MCPToolDefinition[] = [
   },
 ];
 
+
 export async function handleMCPRequest(request: any): Promise<any> {
   const { id, method, params } = request || {};
 
@@ -87,7 +112,66 @@ export async function handleMCPRequest(request: any): Promise<any> {
     const toolName = params?.name;
     const args = params?.arguments || {};
 
+    if (toolName === 'priesm_smart_digest') {
+      const urls: string[] = args.urls || [];
+      if (!Array.isArray(urls) || urls.length === 0) {
+        return {
+          jsonrpc: '2.0',
+          id,
+          error: { code: -32602, message: 'Missing required argument "urls" array' },
+        };
+      }
+
+      const options: ExtractOptions = {
+        query: args.agentTaskQuery,
+        maxTokenBudget: args.maxTokensBudget,
+      };
+
+      try {
+        const crawlRes = await extractMultipleWithCrawl4AI(urls, options);
+        const bundle = createCitationBundle(crawlRes);
+
+        const responseText = [
+          `# Super Bundle (${crawlRes.sourcesCount || urls.length} sources): ${bundle.title}`,
+          `URLs: ${bundle.url}`,
+          `Bundle ID: ${bundle.bundleId}`,
+          `Stats: ${bundle.tokensEst} tokens (~${bundle.savedRatioPercentage}% saved vs raw HTML)`,
+          `Query Filter: ${args.agentTaskQuery || 'none'}`,
+          `---`,
+          bundle.extractedMarkdown,
+        ].join('\n\n');
+
+        return {
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: responseText,
+              },
+            ],
+          },
+        };
+      } catch (err: any) {
+        return {
+          jsonrpc: '2.0',
+          id,
+          result: {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Digest Extraction Failed: ${err?.message || 'Unknown error'}`,
+              },
+            ],
+          },
+        };
+      }
+    }
+
     if (toolName === 'priesm_check_health') {
+
       return {
         jsonrpc: '2.0',
         id,

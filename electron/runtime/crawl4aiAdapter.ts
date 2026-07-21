@@ -3,6 +3,7 @@ export interface ExtractOptions {
   targetSelector?: string;
   maxTokenBudget?: number;
   preserveCodeBlocks?: boolean;
+  query?: string;
 }
 
 export interface Crawl4AIResult {
@@ -17,6 +18,7 @@ export interface Crawl4AIResult {
   error?: string;
   source: 'crawl4ai' | 'fallback';
   appliedMode?: string;
+  sourcesCount?: number;
 }
 
 function estimateTokens(text: string): number {
@@ -25,15 +27,83 @@ function estimateTokens(text: string): number {
 }
 
 /**
- * Crawl4AI API 또는 Fallback 파서를 통해 웹 URL을 커스텀 옵션에 맞춰 최적화 추출합니다.
+ * 다중 웹 URL을 동시 파싱하고 중복 텍스트를 제거하여 1개의 통합 마크다운으로 병합합니다.
+ */
+export async function extractMultipleWithCrawl4AI(
+  urls: string[],
+  options: ExtractOptions = {},
+  apiUrl: string = 'http://localhost:11235'
+): Promise<Crawl4AIResult> {
+  const uniqueUrls = Array.from(new Set(urls.filter((u) => u && u.trim().length > 0)));
+  if (uniqueUrls.length === 0) {
+    return {
+      success: false,
+      url: '',
+      markdown: '',
+      fitMarkdown: '',
+      rawHtmlLength: 0,
+      extractedLength: 0,
+      tokensEst: 0,
+      error: 'No valid URLs provided',
+      source: 'fallback',
+    };
+  }
+
+  if (uniqueUrls.length === 1) {
+    return extractWithCrawl4AI(uniqueUrls[0], options, apiUrl);
+  }
+
+  // Fetch all URLs in parallel
+  const results = await Promise.all(
+    uniqueUrls.map((url) => extractWithCrawl4AI(url, options, apiUrl))
+  );
+
+  const validResults = results.filter((r) => r.success);
+  if (validResults.length === 0) {
+    return {
+      success: false,
+      url: uniqueUrls.join(', '),
+      markdown: '',
+      fitMarkdown: '',
+      rawHtmlLength: 0,
+      extractedLength: 0,
+      tokensEst: 0,
+      error: 'All URL extractions failed',
+      source: 'fallback',
+    };
+  }
+
+  // Merge and deduplicate content across multiple URLs
+  const mergedMarkdown = mergeAndDeduplicate(validResults);
+  const processedMarkdown = processCustomExtractionMode(mergedMarkdown, options);
+  const totalRawLength = validResults.reduce((acc, curr) => acc + curr.rawHtmlLength, 0);
+  const tokensEst = estimateTokens(processedMarkdown);
+
+  const mainTitle = `Super Bundle (${validResults.length} sources): ${validResults[0].title}`;
+
+  return {
+    success: true,
+    url: validResults.map((r) => r.url).join(', '),
+    title: mainTitle,
+    markdown: mergedMarkdown,
+    fitMarkdown: processedMarkdown,
+    rawHtmlLength: totalRawLength,
+    extractedLength: processedMarkdown.length,
+    tokensEst,
+    source: validResults[0].source,
+    appliedMode: options.mode || 'multi-digest',
+    sourcesCount: validResults.length,
+  };
+}
+
+/**
+ * Crawl4AI API 또는 Fallback 파서를 통해 단일 웹 URL을 옵션에 맞춰 추출합니다.
  */
 export async function extractWithCrawl4AI(
   targetUrl: string,
   options: ExtractOptions = {},
   apiUrl: string = 'http://localhost:11235'
 ): Promise<Crawl4AIResult> {
-  const preserveCode = options.preserveCodeBlocks ?? true;
-
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -67,7 +137,7 @@ export async function extractWithCrawl4AI(
       let fitMarkdown = resultData?.fit_markdown || markdown;
       const title = resultData?.metadata?.title || extractTitleFromMarkdown(markdown) || targetUrl;
 
-      // Apply Custom Extraction Mode
+      // Apply Query RAG filtering & custom extraction mode
       fitMarkdown = processCustomExtractionMode(fitMarkdown, options);
 
       const tokensEst = estimateTokens(fitMarkdown);
@@ -82,7 +152,7 @@ export async function extractWithCrawl4AI(
         extractedLength: fitMarkdown.length,
         tokensEst,
         source: 'crawl4ai',
-        appliedMode: options.mode || 'full',
+        appliedMode: options.mode || (options.query ? 'query-rag' : 'full'),
       };
     }
   } catch (err) {
@@ -118,7 +188,7 @@ async function extractFallback(targetUrl: string, options: ExtractOptions): Prom
       extractedLength: cleanMarkdown.length,
       tokensEst,
       source: 'fallback',
-      appliedMode: options.mode || 'full',
+      appliedMode: options.mode || (options.query ? 'query-rag' : 'full'),
     };
   } catch (err: any) {
     return {
@@ -151,15 +221,18 @@ function processCustomExtractionMode(text: string, options: ExtractOptions): str
     processed = codeBlocks.length > 0 ? codeBlocks.join('\n\n') : '<!-- No code blocks found in source -->';
   }
 
-  // 2. Max Token Budget Truncation (Preserve Code Block integrity)
+  // 2. Query-Driven RAG Filtering: Extract relevant paragraphs matching the query
+  if (options.query && options.query.trim().length > 0) {
+    processed = filterByQueryRelevance(processed, options.query.trim());
+  }
+
+  // 3. Max Token Budget Truncation (Preserve Code Block integrity)
   if (options.maxTokenBudget && options.maxTokenBudget > 0) {
     const maxChars = options.maxTokenBudget * 3.5;
     if (processed.length > maxChars) {
-      // Avoid cutting inside a code block if possible
       let cutIndex = Math.floor(maxChars);
       const codeBlockCountBeforeCut = (processed.slice(0, cutIndex).match(/```/g) || []).length;
       if (codeBlockCountBeforeCut % 2 !== 0) {
-        // Find next code block closing tag
         const closingTagIndex = processed.indexOf('```', cutIndex);
         if (closingTagIndex !== -1 && closingTagIndex < maxChars + 1500) {
           cutIndex = closingTagIndex + 3;
@@ -172,6 +245,67 @@ function processCustomExtractionMode(text: string, options: ExtractOptions): str
   return processed;
 }
 
+function filterByQueryRelevance(markdownText: string, query: string): string {
+  const paragraphs = markdownText.split(/\n\n+/);
+  const queryWords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+
+  if (queryWords.length === 0 || paragraphs.length <= 3) {
+    return markdownText;
+  }
+
+  const scoredParagraphs = paragraphs.map((p) => {
+    // Code blocks get high default score to avoid accidental loss
+    if (p.includes('```')) {
+      return { paragraph: p, score: 5 };
+    }
+
+    const lowerP = p.toLowerCase();
+    let score = 0;
+    queryWords.forEach((word) => {
+      if (lowerP.includes(word)) {
+        score += 2;
+      }
+    });
+
+    // Bonus for headings
+    if (p.startsWith('#')) score += 1;
+
+    return { paragraph: p, score };
+  });
+
+  // Keep paragraphs with score > 0 or top 50%
+  const relevant = scoredParagraphs.filter((item) => item.score > 0);
+  if (relevant.length > 0) {
+    return relevant.map((item) => item.paragraph).join('\n\n');
+  }
+
+  return markdownText;
+}
+
+function mergeAndDeduplicate(results: Crawl4AIResult[]): string {
+  const seenParagraphs = new Set<string>();
+  const mergedBlocks: string[] = [];
+
+  results.forEach((res, index) => {
+    mergedBlocks.push(`## Source [${index + 1}]: ${res.title} (${res.url})`);
+    const paragraphs = (res.fitMarkdown || res.markdown).split(/\n\n+/);
+
+    for (const p of paragraphs) {
+      const normalized = p.trim().toLowerCase().replace(/\s+/g, ' ');
+      // Deduplicate paragraphs longer than 30 chars
+      if (normalized.length > 30) {
+        if (seenParagraphs.has(normalized)) {
+          continue; // Skip duplicate paragraph
+        }
+        seenParagraphs.add(normalized);
+      }
+      mergedBlocks.push(p);
+    }
+  });
+
+  return mergedBlocks.join('\n\n');
+}
+
 function extractTitleFromMarkdown(md: string): string | null {
   const match = md.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : null;
@@ -181,7 +315,6 @@ function stripHtmlToCleanMarkdown(html: string, targetSelector?: string): string
   let targetHtml = html;
 
   if (targetSelector) {
-    // Basic CSS selector matching for fallback
     const idMatch = targetSelector.match(/^#([\w-]+)/);
     const classMatch = targetSelector.match(/^\.([\w-]+)/);
     const tagMatch = targetSelector.match(/^([a-z0-9]+)/i);

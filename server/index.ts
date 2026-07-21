@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { extractWithCrawl4AI } from '../electron/runtime/crawl4aiAdapter';
+import { extractWithCrawl4AI, extractMultipleWithCrawl4AI } from '../electron/runtime/crawl4aiAdapter';
 import { createCitationBundle, SharedContextBundle } from '../electron/runtime/citationBundle';
 import { handleMCPRequest, PRIESM_MCP_TOOLS } from '../mcp/server';
 
@@ -65,7 +65,6 @@ export function createServer() {
       }
     }
 
-
     // GET /health
     if (req.method === 'GET' && (urlObj.pathname === '/' || urlObj.pathname === '/health' || urlObj.pathname === '/v1/health')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -84,26 +83,37 @@ export function createServer() {
     // POST /v1/extract or GET /v1/extract?url=...
     if (urlObj.pathname === '/v1/extract') {
       let targetUrl = urlObj.searchParams.get('url');
+      let targetUrls: string[] = [];
       let options: any = {};
 
       if (req.method === 'POST') {
         try {
           const body = await parseRequestBody(req);
           targetUrl = body.url || targetUrl;
-          options = body.options || {};
+          if (Array.isArray(body.urls)) {
+            targetUrls = body.urls;
+          }
+          if (body.query) {
+            options.query = body.query;
+          }
+          options = { ...options, ...(body.options || {}) };
         } catch (e) {
           // ignore json parse error
         }
       }
 
-      if (!targetUrl) {
+      if (targetUrls.length === 0 && targetUrl) {
+        targetUrls = [targetUrl];
+      }
+
+      if (targetUrls.length === 0) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Missing required "url" parameter' }));
+        res.end(JSON.stringify({ success: false, error: 'Missing required "url" or "urls" parameter' }));
         return;
       }
 
       try {
-        const crawlResult = await extractWithCrawl4AI(targetUrl, options);
+        const crawlResult = await extractMultipleWithCrawl4AI(targetUrls, options);
         const bundle = createCitationBundle(crawlResult);
         bundleStore.set(bundle.bundleId, bundle);
 
@@ -121,6 +131,7 @@ export function createServer() {
             savedTokensEst: bundle.savedTokensEst,
             savedRatioPercentage: bundle.savedRatioPercentage,
             source: bundle.source,
+            sourcesCount: crawlResult.sourcesCount || targetUrls.length,
             appliedMode: crawlResult.appliedMode || options.mode || 'full',
             createdAt: bundle.createdAt,
           })
@@ -131,6 +142,7 @@ export function createServer() {
       }
       return;
     }
+
 
 
     // GET /v1/bundles

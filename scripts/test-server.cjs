@@ -1,33 +1,30 @@
 const { handleMCPRequest } = require('../dist-electron/mcp/server.js');
 
-async function testMCP() {
+async function testAgentAdvancedFeatures() {
   try {
-    console.log('--- MCP Test Suite ---');
+    console.log('--- Testing Agent-Centric Advanced Features ---');
     
-    // 1. tools/list
-    const listRes = await handleMCPRequest({ id: 1, method: 'tools/list' });
-    console.log('[1. MCP tools/list Success]:', listRes.result.tools.map(t => t.name));
-
-    // 2. tools/call priesm_extract_web_context
-    const callRes = await handleMCPRequest({
-      id: 2,
+    // 1. Test priesm_smart_digest (Multi-URL + Query RAG)
+    const mcpRes = await handleMCPRequest({
+      id: 10,
       method: 'tools/call',
       params: {
-        name: 'priesm_extract_web_context',
+        name: 'priesm_smart_digest',
         arguments: {
-          url: 'https://example.com',
-          mode: 'full'
+          urls: ['https://example.com'],
+          agentTaskQuery: 'illustrative examples documentation',
+          maxTokensBudget: 100
         }
       }
     });
 
-    console.log('[2. MCP tools/call Success]:', {
-      isError: callRes.result?.isError || false,
-      textPreview: callRes.result?.content[0]?.text?.slice(0, 150)
+    console.log('[priesm_smart_digest Success]:', {
+      isError: mcpRes.result?.isError || false,
+      responsePreview: mcpRes.result?.content[0]?.text?.slice(0, 250)
     });
   } catch (e) {
-    console.error('[MCP Test Failed]:', e);
+    console.error('[Advanced Test Failed]:', e);
   }
 }
 
-testMCP();
+testAgentAdvancedFeatures();
