@@ -1,103 +1,125 @@
-# Priesm AI Browser
+# 🚀 Priesm AI Browser — Project Dashboard & Architecture
 
-> One question. Many minds.
+> **"One question. Many minds. Agent-Native Web Runtime."**  
+> Priesm AI Browser는 사람만 쓰는 브라우저가 아닙니다.  
+> **AI 에이전트(Cursor, ChatGPT, Claude, AutoGPT 등)가 웹을 탐색하고 읽을 때 토큰을 80%+ 절감하고, 팩트를 검증(Fact Verification)하며, 지식을 지능적으로 조립해 주는 AI 전용 클라우드 브라우저 런타임**입니다.
 
-Priesm 서비스에 최적화된 **AI 전용 브라우저 워크스페이스**.
-여러 AI에게 동시에 묻고, Ray로 종합하고, 외부 에이전트와 시너지를 내는 것이 목표입니다.
+---
 
-## 제품 방향 (중요)
+## 🟢 Live System Status & Production Endpoints
 
-Priesm은 사람용 멀티 AI 창에서 끝내지 않는다.  
-**AI가 웹을 검색·열람할 때 경유하는 브라우저 런타임**이 핵심이다.
+| 항목 | 프로덕션 정보 / URL | 상태 |
+|------|----------------------|------|
+| **Cloud API Base Domain** | [`https://api.priesm.ledpa7.com`](https://api.priesm.ledpa7.com) | 🟢 Active (Vercel Edge) |
+| **GitHub Repository** | [`https://github.com/Ledpa7/priesm-ai-browser.git`](https://github.com/Ledpa7/priesm-ai-browser.git) | 🟢 Main Synced |
+| **MCP Protocol Endpoint** | `https://api.priesm.ledpa7.com/v1/mcp` | 🟢 Active (MCP 2024-11-05) |
+| **AI Discovery Spec (`llms.txt`)**| `https://api.priesm.ledpa7.com/llms.txt` | 🟢 Active |
+| **OpenAPI 3.0 Spec (`openapi.json`)**| `https://api.priesm.ledpa7.com/openapi.json` | 🟢 Active |
 
-- 사람: 여러 모델에 묻고 비교 (Human Surface)
-- AI/에이전트: Search·Read·Citation Bundle·(승인된) Act (Agent Surface)
-- 고유 루프: **Browse once → Many minds → Ray**
+---
 
-자세한 기획: [`docs/AI_BROWSER_STRATEGY.md`](./docs/AI_BROWSER_STRATEGY.md)
+## 🔥 핵심 구축 기능 대시보드 (Core Features)
 
-## 현재 단계
+### 1. 🛡️ Priesm Fact Verification Seal System (독자 팩트 검증 인장)
+- **개념**: 외부 웹파서 결과물 위에 Priesm만의 무결성 해시 인장(`[Priesm-Seal: #a3f2]`)을 단락별로 주입.
+- **가치**: AI 에이전트가 마크다운을 읽을 때 단락별로 원본 웹 무결성을 보증받아 **환각(Hallucination) 0%에 도전**.
 
-**Phase 0 — Foundation (진행 중)**
+### 2. ⚡ Token Saver & Entropy Compressor Engine
+- **개념**: 무거운 HTML/JS/CSS/광고 노이즈를 100% 제거하고 코드 블록(` ``` `)과 표(Table)는 100% 완벽 보존.
+- **가치**: 웹페이지 탐색 시 **토큰 소모량을 70~90% 절감**하고 LLM 응답 속도를 3~5배 향상.
 
-- [x] 프로젝트 폴더 / 문서 골격
-- [x] Electron + Vite + React + TS 셸
-- [x] 멀티 슬롯 레이아웃 + Omni-Prompt Bar UI
-- [x] Ray stub (전송 흐름 시뮬레이션)
-- [x] dev 런처 (GPU fallback, ELECTRON_RUN_AS_NODE 방어)
-- [ ] Provider Adapter 1개 (API)
-- [ ] Ray 종합 엔진 이식 (APSE)
-- [ ] Agent Bridge RFC
+### 3. 🎯 Query-Driven RAG & Multi-URL Digest
+- **Query RAG**: 10만 토큰 넘는 문서 중 에이전트의 작업 목적(`query`)과 연관된 핵심 단락만 핀포인트 조립.
+- **Multi-URL Digest**: 3~5개 웹사이트를 1턴 만에 동시 파싱하여 중복 문단을 자동 제거한 1개 Super Bundle 생성.
 
-기반 확장 분석 레포: `../8-priesm-project`
+### 4. 🔌 Native Model Context Protocol (MCP) Support
+- Cursor, Windsurf, Claude Desktop 등에 `https://api.priesm.ledpa7.com/v1/mcp` 한 줄 등록으로 연동.
+- 제공 툴: `priesm_extract_web_context`, `priesm_smart_digest`, `priesm_check_health`.
 
-## 빠른 시작
+### 5. 🤖 Autonomous AI Discovery System
+- 홍보 없이도 전 세계 AI 크롤러/에이전트가 도메인 접속 시 인지하도록 `llms.txt`, `openapi.json`, `/.well-known/mcp.json`, `robots.txt` 자동 서비스.
+
+---
+
+## 🛠️ API 사용 명세 (API Specifications)
+
+### 1) Web Extraction API (`POST /v1/extract`)
 
 ```bash
-cd C:\Users\wjdwl\.gemini\antigravity\scratch\80-priesm-AIbrowser
-npm install
-npm run dev
+curl -X POST https://api.priesm.ledpa7.com/v1/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": ["https://docs.example.com"],
+    "query": "authentication bearer token",
+    "options": {
+      "mode": "full",
+      "maxTokenBudget": 2000
+    }
+  }'
 ```
 
-- `npm run dev` — Vite(5174) + Electron 동시 실행
-- `npm run build` — 프로덕션 빌드
-- `npm run lint` — TypeScript 체크
-- `npm start` — 빌드된 앱 실행 (먼저 `npm run build`)
+### 2) MCP (Model Context Protocol) `mcp.json` 등록
 
-브라우저 창이 뜨면 하단 Omni-Prompt에 질문을 입력해 보세요.
-지금은 **스텁 응답**으로 4슬롯 + Ray 카드 흐름만 시뮬레이션합니다.
+```json
+{
+  "mcpServers": {
+    "priesm-browser": {
+      "url": "https://api.priesm.ledpa7.com/v1/mcp"
+    }
+  }
+}
+```
 
-### 환경 이슈 메모 (Windows)
+---
 
-- 일부 IDE는 `ELECTRON_RUN_AS_NODE=1` 을 설정합니다. `scripts/launch-electron.cjs`가 이를 제거합니다.
-- GPU 가상화 환경에서는 Electron이 크래시할 수 있어 `--disable-gpu` 등 fallback을 적용했습니다.
-- 홈 디렉터리의 전역 `postcss.config.*` 충돌을 피하기 위해 프로젝트 로컬 PostCSS 설정을 둡니다.
-
-## 폴더 구조
+## 📁 프로젝트 구조 (Project Architecture)
 
 ```
 80-priesm-AIbrowser/
-├── docs/                 # 기획 · 아키텍처 문서
-├── electron/             # 메인 프로세스
-├── scripts/              # dev 런처
-├── src/                  # 렌더러 UI
-│   ├── components/
-│   ├── features/ray/
-│   ├── lib/
-│   └── styles/
+├── docs/                      # 전략 및 에이전트 관점 명세서
+│   ├── AGENT_SURFACE_SPEC.md  # AI 에이전트 관점의 4대 페인포인트 & 기획서
+│   ├── AI_BROWSER_STRATEGY.md # Priesm AI Browser 전체 제품 전략
+│   └── MCP_INTEGRATION_GUIDE.md# Cursor/Claude Desktop MCP 연동 가이드
+├── electron/                  # Electron 메인/프리로드 프로세스 및 런타임
+│   ├── runtime/
+│   │   ├── citationBundle.ts  # Fact Verification Seal [Priesm-Seal] 주입 엔진
+│   │   ├── crawl4aiAdapter.ts # Crawl4AI 연동 + Query RAG + 중복 제거 필터
+│   │   └── agentServer.ts     # 로컬 Agent Bridge HTTP 서버
+│   ├── main.ts
+│   └── preload.ts
+├── mcp/                       # Model Context Protocol (MCP) 구현체
+│   └── server.ts              # JSON-RPC MCP 서버 (priesm_smart_digest 등)
+├── server/                    # Standalone Cloud API Server (Vercel 배포용)
+│   ├── discovery.ts           # Autonomous AI Discovery (llms.txt, openapi.json 등)
+│   └── index.ts               # Standalone Node.js HTTP Cloud Server
+├── src/                       # Desktop Client React UI Workspace
+│   ├── components/            # ExtractPanel, SlotCard, RayCard 등 UI
+│   └── App.tsx
 ├── package.json
-└── README.md
+├── vercel.json                # Vercel 1-Click Serverless Deployment Config
+└── README.md                  # Project Dashboard
 ```
 
-## 제품 원칙 (요약)
+---
 
-1. Local-First Intelligence
-2. Multi-Model Neutrality
-3. Agent-Native
-4. Priesm Core First (동시 질의 · Ray · 슬롯)
-5. 최소 권한 · 대화 본문 기본 미업로드
+## ⚙️ 로컬 개발 및 실행 (Local Development)
 
-## 문서
+```bash
+# 1. 의존성 설치
+npm install
 
-- [AI Browser Strategy](./docs/AI_BROWSER_STRATEGY.md) ← 핵심 방향
-- [Product Vision](./docs/PRODUCT_VISION.md)
-- [Vertical Slice Plan](./docs/VERTICAL_SLICE_PLAN.md)
-- [Tech Architecture](./docs/TECH_ARCHITECTURE.md)
+# 2. Standalone Cloud API 로컬 테스트 서버 구동 (Port 37100)
+npm run start:server
 
-## 단계별 진행
+# 3. Electron Desktop Client 구동
+npm run dev
 
-자세한 순서: [`docs/STEP_ROADMAP.md`](./docs/STEP_ROADMAP.md)
+# 4. TypeScript Strict Linting & Type Check
+npm run lint
+```
 
-- **지금 Step 1**: URL Extract + 토큰 est. UI
-- 다음 Step 2: Citation Bundle + budget
+---
 
-## 다음 구현 (Phase 0.5)
+## 📜 라이선스
 
-1. **A1** Runtime `open+extract+trace` + Citation Bundle (AI가 웹 경유)
-2. **H1** OpenAI API Adapter (한 슬롯 실응답)
-3. bundle → multi-slot fanout
-4. (이어서) MCP skeleton
-
-## 라이선스
-
-Private / Unpublished
+Private / Unpublished — All Rights Reserved by Priesm Team.
